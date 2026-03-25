@@ -56,7 +56,7 @@ config :terrarium,
     server: {Terrarium.Providers.SSH,
       host: "dev.example.com",
       user: "deploy",
-      key: System.fetch_env!("SSH_PRIVATE_KEY")
+      auth: {:key, System.fetch_env!("SSH_PRIVATE_KEY")}
     }
   ]
 ```

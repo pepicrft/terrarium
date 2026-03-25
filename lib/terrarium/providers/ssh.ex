@@ -13,8 +13,7 @@ defmodule Terrarium.Providers.SSH do
           server: {Terrarium.Providers.SSH,
             host: "dev.example.com",
             user: "deploy",
-            port: 22,
-            user_dir: "~/.ssh"
+            auth: {:key_path, "~/.ssh/id_ed25519"}
           }
         ]
 
@@ -23,31 +22,31 @@ defmodule Terrarium.Providers.SSH do
   - `:host` — (required) hostname or IP address
   - `:user` — (required) SSH username
   - `:port` — SSH port (default: `22`)
-  - `:password` — password for authentication
-  - `:user_dir` — directory containing SSH keys (default: `~/.ssh`)
-  - `:key` — private key as a PEM string (e.g., from an env var)
-  - `:key_path` — path to a specific private key file
+  - `:auth` — authentication method (see below)
   - `:connect_timeout` — connection timeout in milliseconds (default: `10_000`)
   - `:cwd` — default working directory on the remote host (default: `"/"`)
 
   ## Authentication
 
-  Supports three authentication methods:
+  The `:auth` option accepts a tuple specifying the method:
 
-  - **Password** — `:password` option
-  - **Key directory** — `:user_dir` option, auto-discovers keys in the directory
-  - **Specific key** — `:key` (PEM string) or `:key_path` (file path)
+  - `{:password, "secret"}` — password authentication
+  - `{:key, pem_string}` — private key as a PEM string (e.g., from an env var)
+  - `{:key_path, "~/.ssh/id_ed25519"}` — path to a specific private key file
+  - `{:user_dir, "~/.ssh"}` — directory containing SSH keys (auto-discovers)
+
+  If `:auth` is not provided, Erlang's `:ssh` will attempt default key discovery.
 
   ### Examples
 
       # Password auth
-      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", password: "secret"}
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", auth: {:password, "secret"}}
 
       # Key from a file
-      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", key_path: "~/.ssh/id_ed25519"}
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", auth: {:key_path, "~/.ssh/id_ed25519"}}
 
       # Key from an environment variable
-      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", key: System.fetch_env!("SSH_PRIVATE_KEY")}
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", auth: {:key, System.fetch_env!("SSH_PRIVATE_KEY")}}
   """
 
   use Terrarium.Provider
@@ -70,8 +69,7 @@ defmodule Terrarium.Providers.SSH do
         silently_accept_hosts: true,
         user_interaction: false
       ]
-      |> maybe_add(:password, opts)
-      |> maybe_add_key_opts(opts)
+      |> add_auth_opts(Keyword.get(opts, :auth))
 
     case :ssh.connect(to_charlist(host), port, ssh_opts, connect_timeout) do
       {:ok, conn} ->
@@ -237,26 +235,17 @@ defmodule Terrarium.Providers.SSH do
 
   defp escape(str), do: "'#{String.replace(str, "'", "'\\''")}'"
 
-  defp maybe_add(ssh_opts, :password, opts) do
-    case Keyword.fetch(opts, :password) do
-      {:ok, password} -> Keyword.put(ssh_opts, :password, to_charlist(password))
-      :error -> ssh_opts
-    end
-  end
+  defp add_auth_opts(ssh_opts, nil), do: ssh_opts
 
-  defp maybe_add_key_opts(ssh_opts, opts) do
-    cond do
-      Keyword.has_key?(opts, :key) ->
-        Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key: opts[:key]})
+  defp add_auth_opts(ssh_opts, {:password, password}),
+    do: Keyword.put(ssh_opts, :password, to_charlist(password))
 
-      Keyword.has_key?(opts, :key_path) ->
-        Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key_path: opts[:key_path]})
+  defp add_auth_opts(ssh_opts, {:key, pem}),
+    do: Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key: pem})
 
-      Keyword.has_key?(opts, :user_dir) ->
-        Keyword.put(ssh_opts, :user_dir, to_charlist(Path.expand(opts[:user_dir])))
+  defp add_auth_opts(ssh_opts, {:key_path, path}),
+    do: Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key_path: path})
 
-      true ->
-        ssh_opts
-    end
-  end
+  defp add_auth_opts(ssh_opts, {:user_dir, dir}),
+    do: Keyword.put(ssh_opts, :user_dir, to_charlist(Path.expand(dir)))
 end
