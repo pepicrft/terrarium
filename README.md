@@ -186,6 +186,36 @@ end
 | [Fly Sprites](https://sprites.dev) | `terrarium_sprites` | Planned |
 | [Namespace](https://namespace.so) | `terrarium_namespace` | Planned |
 
+## Telemetry
+
+Terrarium emits telemetry events for all operations via `:telemetry.span/3`. Each operation emits `:start`, `:stop`, and `:exception` events automatically.
+
+| Event | Metadata |
+|---|---|
+| `[:terrarium, :create, *]` | `%{provider: module}` |
+| `[:terrarium, :destroy, *]` | `%{sandbox: sandbox}` |
+| `[:terrarium, :exec, *]` | `%{sandbox: sandbox, command: string}` |
+| `[:terrarium, :read_file, *]` | `%{sandbox: sandbox, path: string}` |
+| `[:terrarium, :write_file, *]` | `%{sandbox: sandbox, path: string}` |
+| `[:terrarium, :ls, *]` | `%{sandbox: sandbox, path: string}` |
+| `[:terrarium, :reconnect, *]` | `%{sandbox: sandbox}` |
+| `[:terrarium, :status, *]` | `%{sandbox: sandbox}` |
+
+```elixir
+:telemetry.attach_many(
+  "terrarium-logger",
+  [
+    [:terrarium, :create, :stop],
+    [:terrarium, :exec, :stop],
+    [:terrarium, :destroy, :stop]
+  ],
+  fn event, measurements, metadata, _config ->
+    Logger.info("#{inspect(event)} took #{measurements.duration} native time units")
+  end,
+  nil
+)
+```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
