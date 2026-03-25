@@ -89,12 +89,33 @@ defmodule Terrarium.Provider do
   """
   @callback ls(sandbox :: Sandbox.t(), path :: String.t()) :: {:ok, [String.t()]} | {:error, term()}
 
+  @doc """
+  Reconnects to an existing sandbox after client restart.
+
+  Called with a sandbox struct restored from `Terrarium.Sandbox.from_map/1`.
+  The provider should verify the sandbox is still alive and refresh any
+  transient state (auth tokens, connections, etc.).
+
+  Returns an updated sandbox on success, or `{:error, :not_found}` if the
+  sandbox no longer exists.
+  """
+  @callback reconnect(sandbox :: Sandbox.t()) :: {:ok, Sandbox.t()} | {:error, term()}
+
   @optional_callbacks [read_file: 2, write_file: 3, ls: 2]
 
   @doc false
   defmacro __using__(_opts) do
     quote do
       @behaviour Terrarium.Provider
+
+      @impl true
+      def reconnect(%Terrarium.Sandbox{} = sandbox) do
+        case status(sandbox) do
+          :running -> {:ok, sandbox}
+          :creating -> {:ok, sandbox}
+          status -> {:error, {:not_running, status}}
+        end
+      end
 
       @impl true
       def read_file(_sandbox, _path), do: {:error, :not_supported}
@@ -105,7 +126,7 @@ defmodule Terrarium.Provider do
       @impl true
       def ls(_sandbox, _path), do: {:error, :not_supported}
 
-      defoverridable read_file: 2, write_file: 3, ls: 2
+      defoverridable reconnect: 1, read_file: 2, write_file: 3, ls: 2
     end
   end
 end

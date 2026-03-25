@@ -9,11 +9,9 @@ defmodule Terrarium do
 
   ## Architecture
 
-  Terrarium defines three behaviours that providers implement:
-
-  - `Terrarium.Provider` — lifecycle management (create, destroy, status)
-  - `Terrarium.Process` — command execution within sandboxes
-  - `Terrarium.FileSystem` — file operations within sandboxes
+  Terrarium defines a single `Terrarium.Provider` behaviour that covers lifecycle
+  management, command execution, and file operations. Providers implement this
+  behaviour to integrate with platforms like Daytona, E2B, Modal, Fly Sprites, and others.
 
   ## Usage
 
@@ -61,6 +59,23 @@ defmodule Terrarium do
       {:ok, sandbox} -> sandbox
       {:error, reason} -> raise "Failed to create sandbox: #{inspect(reason)}"
     end
+  end
+
+  @doc """
+  Reconnects to an existing sandbox after client restart.
+
+  Use this after restoring a sandbox from `Terrarium.Sandbox.from_map/1` to
+  verify the sandbox is still alive and refresh any transient state.
+
+  ## Examples
+
+      data = MyStore.load("sandbox-123")
+      sandbox = Terrarium.Sandbox.from_map(data)
+      {:ok, sandbox} = Terrarium.reconnect(sandbox)
+  """
+  @spec reconnect(Sandbox.t()) :: {:ok, Sandbox.t()} | {:error, term()}
+  def reconnect(%Sandbox{provider: provider} = sandbox) do
+    provider.reconnect(sandbox)
   end
 
   @doc """

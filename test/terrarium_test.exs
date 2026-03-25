@@ -51,4 +51,47 @@ defmodule TerrariumTest do
       assert {:ok, ["file1.txt", "file2.txt"]} = Terrarium.ls(sandbox, "/app")
     end
   end
+
+  describe "reconnect/1" do
+    test "delegates to the provider's reconnect callback" do
+      sandbox = %Sandbox{id: "test-123", provider: Terrarium.TestProvider}
+      assert {:ok, %Sandbox{id: "test-123"}} = Terrarium.reconnect(sandbox)
+    end
+  end
+
+  describe "Sandbox serialization" do
+    test "to_map/1 serializes sandbox to a plain map" do
+      sandbox = %Sandbox{id: "test-123", provider: Terrarium.TestProvider, state: %{"token" => "abc"}}
+      map = Sandbox.to_map(sandbox)
+
+      assert map == %{
+               "id" => "test-123",
+               "provider" => "Elixir.Terrarium.TestProvider",
+               "state" => %{"token" => "abc"}
+             }
+    end
+
+    test "from_map/1 restores a sandbox from a serialized map" do
+      map = %{
+        "id" => "test-123",
+        "provider" => "Elixir.Terrarium.TestProvider",
+        "state" => %{"token" => "abc"}
+      }
+
+      sandbox = Sandbox.from_map(map)
+
+      assert sandbox.id == "test-123"
+      assert sandbox.provider == Terrarium.TestProvider
+      assert sandbox.state == %{"token" => "abc"}
+    end
+
+    test "roundtrip serialization preserves the sandbox" do
+      original = %Sandbox{id: "test-123", provider: Terrarium.TestProvider, state: %{"key" => "value"}}
+      restored = original |> Sandbox.to_map() |> Sandbox.from_map()
+
+      assert restored.id == original.id
+      assert restored.provider == original.provider
+      assert restored.state == original.state
+    end
+  end
 end
