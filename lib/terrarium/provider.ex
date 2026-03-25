@@ -143,7 +143,21 @@ defmodule Terrarium.Provider do
   """
   @callback reconnect(sandbox :: Sandbox.t()) :: {:ok, Sandbox.t()} | {:error, term()}
 
-  @optional_callbacks [read_file: 2, write_file: 3, ls: 2]
+  @doc """
+  Transfers a local file to the sandbox filesystem.
+
+  This callback enables providers to implement efficient bulk file transfer
+  (e.g., SFTP for SSH providers). The default implementation reads the local
+  file and delegates to `write_file/3`.
+
+  ## Options
+
+  - `:timeout` — transfer timeout in milliseconds
+  """
+  @callback transfer(sandbox :: Sandbox.t(), local_path :: String.t(), remote_path :: String.t(), opts :: keyword()) ::
+              :ok | {:error, term()}
+
+  @optional_callbacks [read_file: 2, write_file: 3, ls: 2, transfer: 4]
 
   @doc false
   defmacro __using__(_opts) do
@@ -168,7 +182,15 @@ defmodule Terrarium.Provider do
       @impl true
       def ls(_sandbox, _path), do: {:error, :not_supported}
 
-      defoverridable reconnect: 1, read_file: 2, write_file: 3, ls: 2
+      @impl true
+      def transfer(sandbox, local_path, remote_path, _opts) do
+        case File.read(local_path) do
+          {:ok, content} -> write_file(sandbox, remote_path, content)
+          {:error, reason} -> {:error, reason}
+        end
+      end
+
+      defoverridable reconnect: 1, read_file: 2, write_file: 3, ls: 2, transfer: 4
     end
   end
 end

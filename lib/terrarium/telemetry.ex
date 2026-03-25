@@ -37,6 +37,10 @@ defmodule Terrarium.Telemetry do
 
   - Metadata: `%{sandbox: Terrarium.Sandbox.t(), path: String.t()}`
 
+  ### `[:terrarium, :transfer, :start | :stop | :exception]`
+
+  - Metadata: `%{sandbox: Terrarium.Sandbox.t(), local_path: String.t(), remote_path: String.t(), file_size: non_neg_integer() | nil}`
+
   ### `[:terrarium, :ls, :start | :stop | :exception]`
 
   - Metadata: `%{sandbox: Terrarium.Sandbox.t(), path: String.t()}`

@@ -214,6 +214,36 @@ defmodule Terrarium do
   end
 
   @doc """
+  Transfers a local file to the sandbox filesystem.
+
+  Uses the provider's optimized transfer mechanism when available (e.g., SFTP
+  for SSH providers). Falls back to reading the local file and calling
+  `write_file/3` if the provider does not implement a custom `transfer/4`.
+
+  ## Options
+
+  - `:timeout` — transfer timeout in milliseconds
+
+  ## Examples
+
+      :ok = Terrarium.transfer(sandbox, "/tmp/release.tar.gz", "/app/release.tar.gz")
+  """
+  @spec transfer(Sandbox.t(), String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  def transfer(%Sandbox{provider: provider} = sandbox, local_path, remote_path, opts \\ []) do
+    metadata = %{sandbox: sandbox, local_path: local_path, remote_path: remote_path}
+
+    metadata =
+      case File.stat(local_path) do
+        {:ok, %{size: size}} -> Map.put(metadata, :file_size, size)
+        _ -> metadata
+      end
+
+    Terrarium.Telemetry.span(:transfer, metadata, fn ->
+      provider.transfer(sandbox, local_path, remote_path, opts)
+    end)
+  end
+
+  @doc """
   Returns SSH connection parameters for the sandbox.
 
   This allows consumers to establish direct SSH connections to the sandbox,

@@ -188,6 +188,26 @@ defmodule Terrarium.Providers.SSH do
   end
 
   @impl true
+  def transfer(%Terrarium.Sandbox{state: %{"conn" => conn}}, local_path, remote_path, _opts) do
+    case File.read(local_path) do
+      {:ok, content} ->
+        case :ssh_sftp.start_channel(conn) do
+          {:ok, sftp} ->
+            ensure_remote_dir(sftp, Path.dirname(remote_path))
+            result = :ssh_sftp.write_file(sftp, to_charlist(remote_path), content)
+            :ssh_sftp.stop_channel(sftp)
+            result
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
   def ls(%Terrarium.Sandbox{state: %{"conn" => conn}}, path) do
     case :ssh_sftp.start_channel(conn) do
       {:ok, sftp} ->
