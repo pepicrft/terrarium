@@ -17,26 +17,36 @@ defmodule Terrarium.Providers.Local do
 
   use Terrarium.Provider
 
+  require Logger
+
   @impl true
   def create(opts) do
     cwd = Keyword.get_lazy(opts, :cwd, &create_temp_dir/0)
+    temp = !Keyword.has_key?(opts, :cwd)
 
     sandbox = %Terrarium.Sandbox{
       id: generate_id(),
       provider: __MODULE__,
-      state: %{"cwd" => cwd, "temp" => !Keyword.has_key?(opts, :cwd)}
+      state: %{"cwd" => cwd, "temp" => temp}
     }
+
+    Logger.info("Local sandbox created", sandbox_id: sandbox.id, cwd: cwd, temp: temp)
 
     {:ok, sandbox}
   end
 
   @impl true
-  def destroy(%Terrarium.Sandbox{state: %{"cwd" => cwd, "temp" => true}}) do
+  def destroy(%Terrarium.Sandbox{state: %{"cwd" => cwd, "temp" => true}} = sandbox) do
+    Logger.debug("Removing temp directory", sandbox_id: sandbox.id, cwd: cwd)
     File.rm_rf!(cwd)
+    Logger.info("Local sandbox destroyed", sandbox_id: sandbox.id)
     :ok
   end
 
-  def destroy(_sandbox), do: :ok
+  def destroy(sandbox) do
+    Logger.info("Local sandbox destroyed (cwd preserved)", sandbox_id: sandbox.id)
+    :ok
+  end
 
   @impl true
   def status(_sandbox), do: :running
@@ -52,16 +62,30 @@ defmodule Terrarium.Providers.Local do
   @impl true
   def exec(sandbox, command, opts \\ [])
 
-  def exec(%Terrarium.Sandbox{state: %{"cwd" => cwd}}, command, opts) do
+  def exec(%Terrarium.Sandbox{state: %{"cwd" => cwd}} = sandbox, command, opts) do
     work_dir = Keyword.get(opts, :cwd, cwd)
     env = Keyword.get(opts, :env, %{}) |> Enum.map(fn {k, v} -> {to_string(k), to_string(v)} end)
     timeout = Keyword.get(opts, :timeout, 120_000)
 
+    Logger.debug("Executing local command", sandbox_id: sandbox.id, command: command, cwd: work_dir)
+
     case MuonTrap.cmd("sh", ["-c", command], cd: work_dir, env: env, timeout: timeout) do
       {stdout, :timeout} ->
+        Logger.error("Local command timed out",
+          sandbox_id: sandbox.id,
+          command: command,
+          timeout: timeout
+        )
+
         {:error, {:timeout, stdout}}
 
       {stdout, exit_code} ->
+        Logger.debug("Local command completed",
+          sandbox_id: sandbox.id,
+          command: command,
+          exit_code: exit_code
+        )
+
         {:ok, %Terrarium.Process.Result{exit_code: exit_code, stdout: stdout}}
     end
   end

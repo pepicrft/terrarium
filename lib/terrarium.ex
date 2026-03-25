@@ -49,6 +49,8 @@ defmodule Terrarium do
 
   alias Terrarium.Sandbox
 
+  require Logger
+
   @doc """
   Creates a new sandbox.
 
@@ -81,18 +83,36 @@ defmodule Terrarium do
   def create(name, opts) when is_atom(name) and name != nil do
     {config, opts} = Keyword.pop(opts, :config)
     {provider, provider_opts} = resolve_named_or_module(name, config)
+    Logger.debug("Creating sandbox", provider: provider)
 
     Terrarium.Telemetry.span(:create, %{provider: provider}, fn ->
-      provider.create(Keyword.merge(provider_opts, opts))
+      case provider.create(Keyword.merge(provider_opts, opts)) do
+        {:ok, sandbox} = result ->
+          Logger.info("Sandbox created", sandbox_id: sandbox.id, provider: provider)
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to create sandbox", provider: provider, reason: reason)
+          error
+      end
     end)
   end
 
   def create(opts, []) when is_list(opts) do
     {config, opts} = Keyword.pop(opts, :config)
     {provider, provider_opts, opts} = resolve_from_opts(opts, config)
+    Logger.debug("Creating sandbox", provider: provider)
 
     Terrarium.Telemetry.span(:create, %{provider: provider}, fn ->
-      provider.create(Keyword.merge(provider_opts, opts))
+      case provider.create(Keyword.merge(provider_opts, opts)) do
+        {:ok, sandbox} = result ->
+          Logger.info("Sandbox created", sandbox_id: sandbox.id, provider: provider)
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to create sandbox", provider: provider, reason: reason)
+          error
+      end
     end)
   end
 
@@ -130,8 +150,23 @@ defmodule Terrarium do
   """
   @spec reconnect(Sandbox.t()) :: {:ok, Sandbox.t()} | {:error, term()}
   def reconnect(%Sandbox{provider: provider} = sandbox) do
+    Logger.debug("Reconnecting to sandbox", sandbox_id: sandbox.id, provider: provider)
+
     Terrarium.Telemetry.span(:reconnect, %{sandbox: sandbox}, fn ->
-      provider.reconnect(sandbox)
+      case provider.reconnect(sandbox) do
+        {:ok, sandbox} = result ->
+          Logger.info("Reconnected to sandbox", sandbox_id: sandbox.id, provider: provider)
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to reconnect to sandbox",
+            sandbox_id: sandbox.id,
+            provider: provider,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 
@@ -144,8 +179,23 @@ defmodule Terrarium do
   """
   @spec destroy(Sandbox.t()) :: :ok | {:error, term()}
   def destroy(%Sandbox{provider: provider} = sandbox) do
+    Logger.debug("Destroying sandbox", sandbox_id: sandbox.id, provider: provider)
+
     Terrarium.Telemetry.span(:destroy, %{sandbox: sandbox}, fn ->
-      provider.destroy(sandbox)
+      case provider.destroy(sandbox) do
+        :ok ->
+          Logger.info("Sandbox destroyed", sandbox_id: sandbox.id, provider: provider)
+          :ok
+
+        {:error, reason} = error ->
+          Logger.error("Failed to destroy sandbox",
+            sandbox_id: sandbox.id,
+            provider: provider,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 
@@ -159,8 +209,12 @@ defmodule Terrarium do
   """
   @spec status(Sandbox.t()) :: Terrarium.Provider.status()
   def status(%Sandbox{provider: provider} = sandbox) do
+    Logger.debug("Checking sandbox status", sandbox_id: sandbox.id, provider: provider)
+
     Terrarium.Telemetry.span(:status, %{sandbox: sandbox}, fn ->
-      provider.status(sandbox)
+      status = provider.status(sandbox)
+      Logger.debug("Sandbox status retrieved", sandbox_id: sandbox.id, status: status)
+      status
     end)
   end
 
@@ -180,8 +234,32 @@ defmodule Terrarium do
   """
   @spec exec(Sandbox.t(), String.t(), keyword()) :: {:ok, Terrarium.Process.Result.t()} | {:error, term()}
   def exec(%Sandbox{provider: provider} = sandbox, command, opts \\ []) do
+    Logger.debug("Executing command",
+      sandbox_id: sandbox.id,
+      command: command,
+      cwd: Keyword.get(opts, :cwd)
+    )
+
     Terrarium.Telemetry.span(:exec, %{sandbox: sandbox, command: command}, fn ->
-      provider.exec(sandbox, command, opts)
+      case provider.exec(sandbox, command, opts) do
+        {:ok, result} = ok ->
+          Logger.debug("Command completed",
+            sandbox_id: sandbox.id,
+            command: command,
+            exit_code: result.exit_code
+          )
+
+          ok
+
+        {:error, reason} = error ->
+          Logger.error("Command failed",
+            sandbox_id: sandbox.id,
+            command: command,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 
@@ -194,8 +272,18 @@ defmodule Terrarium do
   """
   @spec read_file(Sandbox.t(), String.t()) :: {:ok, binary()} | {:error, term()}
   def read_file(%Sandbox{provider: provider} = sandbox, path) do
+    Logger.debug("Reading file", sandbox_id: sandbox.id, path: path)
+
     Terrarium.Telemetry.span(:read_file, %{sandbox: sandbox, path: path}, fn ->
-      provider.read_file(sandbox, path)
+      case provider.read_file(sandbox, path) do
+        {:ok, content} = result ->
+          Logger.debug("File read", sandbox_id: sandbox.id, path: path, size: byte_size(content))
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to read file", sandbox_id: sandbox.id, path: path, reason: reason)
+          error
+      end
     end)
   end
 
@@ -208,8 +296,23 @@ defmodule Terrarium do
   """
   @spec write_file(Sandbox.t(), String.t(), binary()) :: :ok | {:error, term()}
   def write_file(%Sandbox{provider: provider} = sandbox, path, content) do
+    Logger.debug("Writing file", sandbox_id: sandbox.id, path: path, size: byte_size(content))
+
     Terrarium.Telemetry.span(:write_file, %{sandbox: sandbox, path: path}, fn ->
-      provider.write_file(sandbox, path, content)
+      case provider.write_file(sandbox, path, content) do
+        :ok ->
+          Logger.debug("File written", sandbox_id: sandbox.id, path: path)
+          :ok
+
+        {:error, reason} = error ->
+          Logger.error("Failed to write file",
+            sandbox_id: sandbox.id,
+            path: path,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 
@@ -227,8 +330,29 @@ defmodule Terrarium do
   """
   @spec ssh_opts(Sandbox.t()) :: {:ok, Terrarium.Provider.ssh_opts()} | {:error, term()}
   def ssh_opts(%Sandbox{provider: provider} = sandbox) do
+    Logger.debug("Retrieving SSH opts", sandbox_id: sandbox.id, provider: provider)
+
     Terrarium.Telemetry.span(:ssh_opts, %{sandbox: sandbox}, fn ->
-      provider.ssh_opts(sandbox)
+      case provider.ssh_opts(sandbox) do
+        {:ok, opts} = result ->
+          Logger.debug("SSH opts retrieved",
+            sandbox_id: sandbox.id,
+            ssh_host: opts[:host],
+            ssh_port: opts[:port],
+            ssh_user: opts[:user]
+          )
+
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to retrieve SSH opts",
+            sandbox_id: sandbox.id,
+            provider: provider,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 
@@ -241,8 +365,28 @@ defmodule Terrarium do
   """
   @spec ls(Sandbox.t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def ls(%Sandbox{provider: provider} = sandbox, path) do
+    Logger.debug("Listing directory", sandbox_id: sandbox.id, path: path)
+
     Terrarium.Telemetry.span(:ls, %{sandbox: sandbox, path: path}, fn ->
-      provider.ls(sandbox, path)
+      case provider.ls(sandbox, path) do
+        {:ok, entries} = result ->
+          Logger.debug("Directory listed",
+            sandbox_id: sandbox.id,
+            path: path,
+            entry_count: length(entries)
+          )
+
+          result
+
+        {:error, reason} = error ->
+          Logger.error("Failed to list directory",
+            sandbox_id: sandbox.id,
+            path: path,
+            reason: reason
+          )
+
+          error
+      end
     end)
   end
 

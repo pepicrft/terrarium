@@ -51,6 +51,8 @@ defmodule Terrarium.Providers.SSH do
 
   use Terrarium.Provider
 
+  require Logger
+
   @default_port 22
   @default_connect_timeout 10_000
   @default_exec_timeout 120_000
@@ -72,6 +74,8 @@ defmodule Terrarium.Providers.SSH do
       ]
       |> add_auth_opts(auth)
 
+    Logger.debug("Connecting via SSH", host: host, port: port, user: user)
+
     case :ssh.connect(to_charlist(host), port, ssh_opts, connect_timeout) do
       {:ok, conn} ->
         sandbox = %Terrarium.Sandbox{
@@ -87,16 +91,26 @@ defmodule Terrarium.Providers.SSH do
           }
         }
 
+        Logger.info("SSH connection established",
+          sandbox_id: sandbox.id,
+          host: host,
+          port: port,
+          user: user
+        )
+
         {:ok, sandbox}
 
       {:error, reason} ->
+        Logger.error("SSH connection failed", host: host, port: port, user: user, reason: reason)
         {:error, reason}
     end
   end
 
   @impl true
-  def destroy(%Terrarium.Sandbox{state: %{"conn" => conn}}) do
+  def destroy(%Terrarium.Sandbox{state: %{"conn" => conn}} = sandbox) do
+    Logger.debug("Closing SSH connection", sandbox_id: sandbox.id)
     :ssh.close(conn)
+    Logger.info("SSH connection closed", sandbox_id: sandbox.id)
     :ok
   end
 
@@ -110,9 +124,15 @@ defmodule Terrarium.Providers.SSH do
     conn = state["conn"]
 
     if Process.alive?(conn) do
+      Logger.debug("SSH connection still alive, reusing", sandbox_id: sandbox.id)
       {:ok, sandbox}
     else
-      # Re-establish connection using stored info
+      Logger.warning("SSH connection dead, re-establishing",
+        sandbox_id: sandbox.id,
+        host: state["host"],
+        port: state["port"]
+      )
+
       opts = [
         host: state["host"],
         user: state["user"],
@@ -144,51 +164,123 @@ defmodule Terrarium.Providers.SSH do
   @impl true
   def exec(sandbox, command, opts \\ [])
 
-  def exec(%Terrarium.Sandbox{state: %{"conn" => conn, "cwd" => cwd}}, command, opts) do
+  def exec(%Terrarium.Sandbox{state: %{"conn" => conn, "cwd" => cwd}} = sandbox, command, opts) do
     work_dir = Keyword.get(opts, :cwd, cwd)
     timeout = Keyword.get(opts, :timeout, @default_exec_timeout)
 
     full_command = "cd #{escape(work_dir)} && #{command}"
 
+    Logger.debug("Executing command via SSH",
+      sandbox_id: sandbox.id,
+      command: command,
+      cwd: work_dir
+    )
+
     case :ssh_connection.session_channel(conn, timeout) do
       {:ok, channel} ->
         :success = :ssh_connection.exec(conn, channel, to_charlist(full_command), timeout)
-        collect_response(conn, channel, timeout)
+
+        case collect_response(conn, channel, timeout) do
+          {:ok, result} = ok ->
+            Logger.debug("SSH command completed",
+              sandbox_id: sandbox.id,
+              command: command,
+              exit_code: result.exit_code
+            )
+
+            ok
+
+          {:error, reason} = error ->
+            Logger.error("SSH command failed",
+              sandbox_id: sandbox.id,
+              command: command,
+              reason: reason
+            )
+
+            error
+        end
 
       {:error, reason} ->
+        Logger.error("Failed to open SSH channel",
+          sandbox_id: sandbox.id,
+          reason: reason
+        )
+
         {:error, reason}
     end
   end
 
   @impl true
-  def read_file(%Terrarium.Sandbox{state: %{"conn" => conn}}, path) do
+  def read_file(%Terrarium.Sandbox{state: %{"conn" => conn}} = sandbox, path) do
+    Logger.debug("Reading file via SFTP", sandbox_id: sandbox.id, path: path)
+
     case :ssh_sftp.start_channel(conn) do
       {:ok, sftp} ->
         result = :ssh_sftp.read_file(sftp, to_charlist(path))
         :ssh_sftp.stop_channel(sftp)
+
+        case result do
+          {:ok, content} ->
+            Logger.debug("File read via SFTP",
+              sandbox_id: sandbox.id,
+              path: path,
+              size: byte_size(content)
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to read file via SFTP",
+              sandbox_id: sandbox.id,
+              path: path,
+              reason: reason
+            )
+        end
+
         result
 
       {:error, reason} ->
+        Logger.error("Failed to start SFTP channel", sandbox_id: sandbox.id, reason: reason)
         {:error, reason}
     end
   end
 
   @impl true
-  def write_file(%Terrarium.Sandbox{state: %{"conn" => conn}}, path, content) do
+  def write_file(%Terrarium.Sandbox{state: %{"conn" => conn}} = sandbox, path, content) do
+    Logger.debug("Writing file via SFTP",
+      sandbox_id: sandbox.id,
+      path: path,
+      size: byte_size(content)
+    )
+
     case :ssh_sftp.start_channel(conn) do
       {:ok, sftp} ->
         ensure_remote_dir(sftp, Path.dirname(path))
         result = :ssh_sftp.write_file(sftp, to_charlist(path), content)
         :ssh_sftp.stop_channel(sftp)
+
+        case result do
+          :ok ->
+            Logger.debug("File written via SFTP", sandbox_id: sandbox.id, path: path)
+
+          {:error, reason} ->
+            Logger.error("Failed to write file via SFTP",
+              sandbox_id: sandbox.id,
+              path: path,
+              reason: reason
+            )
+        end
+
         result
 
       {:error, reason} ->
+        Logger.error("Failed to start SFTP channel", sandbox_id: sandbox.id, reason: reason)
         {:error, reason}
     end
   end
 
   @impl true
-  def ls(%Terrarium.Sandbox{state: %{"conn" => conn}}, path) do
+  def ls(%Terrarium.Sandbox{state: %{"conn" => conn}} = sandbox, path) do
+    Logger.debug("Listing directory via SFTP", sandbox_id: sandbox.id, path: path)
+
     case :ssh_sftp.start_channel(conn) do
       {:ok, sftp} ->
         result =
@@ -200,9 +292,21 @@ defmodule Terrarium.Providers.SSH do
                 |> Enum.reject(&(&1 in [".", ".."]))
                 |> Enum.sort()
 
+              Logger.debug("Directory listed via SFTP",
+                sandbox_id: sandbox.id,
+                path: path,
+                entry_count: length(names)
+              )
+
               {:ok, names}
 
             {:error, reason} ->
+              Logger.error("Failed to list directory via SFTP",
+                sandbox_id: sandbox.id,
+                path: path,
+                reason: reason
+              )
+
               {:error, reason}
           end
 
@@ -210,6 +314,7 @@ defmodule Terrarium.Providers.SSH do
         result
 
       {:error, reason} ->
+        Logger.error("Failed to start SFTP channel", sandbox_id: sandbox.id, reason: reason)
         {:error, reason}
     end
   end
