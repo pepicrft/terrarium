@@ -23,7 +23,7 @@ defmodule Terrarium.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :ssh]
     ]
   end
 
@@ -55,9 +55,11 @@ defmodule Terrarium.MixProject do
           Terrarium.Sandbox
         ],
         Behaviours: [
-          Terrarium.Provider,
-          Terrarium.Process,
-          Terrarium.FileSystem
+          Terrarium.Provider
+        ],
+        Providers: [
+          Terrarium.Providers.Local,
+          Terrarium.Providers.SSH
         ]
       ]
     ]

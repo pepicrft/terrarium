@@ -165,6 +165,7 @@ end
 | Provider | Package | Status |
 |---|---|---|
 | Local | `terrarium` (built-in) | Available |
+| SSH | `terrarium` (built-in) | Available |
 | [Daytona](https://daytona.io) | `terrarium_daytona` | Planned |
 | [E2B](https://e2b.dev) | `terrarium_e2b` | Planned |
 | [Modal](https://modal.com) | `terrarium_modal` | Planned |
