@@ -9,17 +9,12 @@ defmodule TerrariumTest do
                Terrarium.create(Terrarium.TestProvider)
     end
 
-    test "uses the configured default provider when no module is passed" do
-      Application.put_env(:terrarium, :provider, Terrarium.TestProvider)
-
-      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} = Terrarium.create()
-    after
-      Application.delete_env(:terrarium, :provider)
+    test "uses the provider from opts when no module is passed" do
+      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} =
+               Terrarium.create(provider: Terrarium.TestProvider)
     end
 
     test "raises when no provider is configured and none is passed" do
-      Application.delete_env(:terrarium, :provider)
-
       assert_raise ArgumentError, ~r/no default provider configured/, fn ->
         Terrarium.create()
       end

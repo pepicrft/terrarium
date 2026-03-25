@@ -70,7 +70,8 @@ defmodule Terrarium do
   end
 
   def create(opts, []) when is_list(opts) do
-    default_provider!().create(opts)
+    {provider, opts} = resolve_provider(opts)
+    provider.create(opts)
   end
 
   @doc """
@@ -190,15 +191,21 @@ defmodule Terrarium do
     provider.ls(sandbox, path)
   end
 
-  defp default_provider! do
-    case Application.get_env(:terrarium, :provider) do
-      nil ->
-        raise ArgumentError,
-              "no default provider configured. Either pass a provider module explicitly " <>
-                "or set one in your config: config :terrarium, provider: Terrarium.Providers.Local"
+  defp resolve_provider(opts) do
+    case Keyword.pop(opts, :provider) do
+      {nil, opts} ->
+        case Application.get_env(:terrarium, :provider) do
+          nil ->
+            raise ArgumentError,
+                  "no default provider configured. Either pass a provider module explicitly " <>
+                    "or set one in your config: config :terrarium, provider: Terrarium.Providers.Local"
 
-      provider ->
-        provider
+          provider ->
+            {provider, opts}
+        end
+
+      {provider, opts} ->
+        {provider, opts}
     end
   end
 end
