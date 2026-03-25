@@ -79,12 +79,14 @@ defmodule Terrarium do
   def create(provider_or_opts \\ [], opts \\ [])
 
   def create(name, opts) when is_atom(name) and name != nil do
-    {provider, provider_opts} = resolve_named_or_module(name)
+    {config, opts} = Keyword.pop(opts, :config)
+    {provider, provider_opts} = resolve_named_or_module(name, config)
     provider.create(Keyword.merge(provider_opts, opts))
   end
 
   def create(opts, []) when is_list(opts) do
-    {provider, provider_opts, opts} = resolve_from_opts(opts)
+    {config, opts} = Keyword.pop(opts, :config)
+    {provider, provider_opts, opts} = resolve_from_opts(opts, config)
     provider.create(Keyword.merge(provider_opts, opts))
   end
 
@@ -205,10 +207,13 @@ defmodule Terrarium do
     provider.ls(sandbox, path)
   end
 
+  defp get_config(nil, key, default), do: Application.get_env(:terrarium, key, default)
+  defp get_config(config, key, default), do: Keyword.get(config, key, default)
+
   # Resolves an atom that could be either a named provider from config
   # or a direct provider module.
-  defp resolve_named_or_module(name) do
-    providers = Application.get_env(:terrarium, :providers, [])
+  defp resolve_named_or_module(name, config) do
+    providers = get_config(config, :providers, [])
 
     case Keyword.fetch(providers, name) do
       {:ok, {module, opts}} -> {module, opts}
@@ -219,30 +224,30 @@ defmodule Terrarium do
 
   # Resolves the provider from opts (inline :provider key) or falls back
   # to the configured default.
-  defp resolve_from_opts(opts) do
+  defp resolve_from_opts(opts, config) do
     case Keyword.pop(opts, :provider) do
       {nil, opts} ->
-        {provider, provider_opts} = resolve_default!()
+        {provider, provider_opts} = resolve_default!(config)
         {provider, provider_opts, opts}
 
       {{module, provider_opts}, opts} when is_atom(module) ->
         {module, provider_opts, opts}
 
       {module, opts} when is_atom(module) ->
-        {provider, provider_opts} = resolve_named_or_module(module)
+        {provider, provider_opts} = resolve_named_or_module(module, config)
         {provider, provider_opts, opts}
     end
   end
 
-  defp resolve_default! do
-    case Application.get_env(:terrarium, :default) do
+  defp resolve_default!(config) do
+    case get_config(config, :default, nil) do
       nil ->
         raise ArgumentError,
               "no default provider configured. Either pass a provider explicitly " <>
                 "or configure one: config :terrarium, default: :local, providers: [local: Terrarium.Providers.Local]"
 
       name ->
-        resolve_named_or_module(name)
+        resolve_named_or_module(name, config)
     end
   end
 end

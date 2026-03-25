@@ -1,45 +1,37 @@
 defmodule Terrarium.ConfigTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Terrarium.Sandbox
 
-  # These tests modify Application config and must run sequentially.
-
-  setup do
-    on_exit(fn ->
-      Application.delete_env(:terrarium, :default)
-      Application.delete_env(:terrarium, :providers)
-    end)
-  end
+  @config [
+    default: :test,
+    providers: [
+      test: {Terrarium.TestProvider, from_config: true},
+      bare: Terrarium.TestProvider
+    ]
+  ]
 
   describe "named providers from config" do
     test "resolves a named provider" do
-      Application.put_env(:terrarium, :providers, test: Terrarium.TestProvider)
-
-      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} = Terrarium.create(:test)
+      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} =
+               Terrarium.create(:bare, config: @config)
     end
 
     test "resolves a named provider with {module, opts} tuple" do
-      Application.put_env(:terrarium, :providers, test: {Terrarium.TestProvider, some: "config"})
-
-      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} = Terrarium.create(:test)
+      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} =
+               Terrarium.create(:test, config: @config)
     end
   end
 
   describe "default provider from config" do
     test "uses the configured default provider" do
-      Application.put_env(:terrarium, :default, :test)
-      Application.put_env(:terrarium, :providers, test: Terrarium.TestProvider)
-
-      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} = Terrarium.create()
+      assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} =
+               Terrarium.create(config: @config)
     end
 
     test "merges config opts with call-site opts" do
-      Application.put_env(:terrarium, :default, :test)
-      Application.put_env(:terrarium, :providers, test: {Terrarium.TestProvider, from_config: true})
-
       assert {:ok, %Sandbox{provider: Terrarium.TestProvider}} =
-               Terrarium.create(from_call: true)
+               Terrarium.create(config: @config, from_call: true)
     end
   end
 end
