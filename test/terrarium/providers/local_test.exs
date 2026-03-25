@@ -15,19 +15,16 @@ defmodule Terrarium.Providers.LocalTest do
       Local.destroy(sandbox)
     end
 
-    test "creates a sandbox with a custom cwd" do
-      dir = Path.join(System.tmp_dir!(), "terrarium-test-#{System.unique_integer([:positive])}")
-      File.mkdir_p!(dir)
+    @tag :tmp_dir
+    test "creates a sandbox with a custom cwd", %{tmp_dir: tmp_dir} do
+      {:ok, sandbox} = Local.create(cwd: tmp_dir)
 
-      {:ok, sandbox} = Local.create(cwd: dir)
-
-      assert sandbox.state["cwd"] == dir
+      assert sandbox.state["cwd"] == tmp_dir
       assert sandbox.state["temp"] == false
 
       Local.destroy(sandbox)
       # Custom cwd should not be deleted
-      assert File.dir?(dir)
-      File.rm_rf!(dir)
+      assert File.dir?(tmp_dir)
     end
   end
 
