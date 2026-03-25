@@ -52,19 +52,12 @@ defmodule Terrarium.Providers.Local do
     env = Keyword.get(opts, :env, %{}) |> Enum.map(fn {k, v} -> {to_string(k), to_string(v)} end)
     timeout = Keyword.get(opts, :timeout, 120_000)
 
-    args = ["-c", command]
+    case MuonTrap.cmd("sh", ["-c", command], cd: work_dir, env: env, timeout: timeout) do
+      {stdout, :timeout} ->
+        {:error, {:timeout, stdout}}
 
-    task =
-      Task.async(fn ->
-        System.cmd("sh", args, cd: work_dir, env: env, stderr_to_stdout: false, into: "")
-      end)
-
-    case Task.yield(task, timeout) || Task.shutdown(task) do
-      {:ok, {stdout, exit_code}} ->
+      {stdout, exit_code} ->
         {:ok, %Terrarium.Process.Result{exit_code: exit_code, stdout: stdout}}
-
-      nil ->
-        {:error, :timeout}
     end
   end
 

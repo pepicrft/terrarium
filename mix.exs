@@ -32,6 +32,9 @@ defmodule Terrarium.MixProject do
 
   defp deps do
     [
+      # Command execution with child process shutdown propagation
+      {:muontrap, "~> 1.7"},
+
       # Development & Testing
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
