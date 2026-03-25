@@ -8,17 +8,17 @@ An Elixir abstraction for provisioning and interacting with sandbox environments
 
 ## Motivation
 
-The AI agent ecosystem is producing many sandbox environment providers — Daytona, E2B, Modal, Fly Sprites, Namespace, and more. Each has its own API, SDK, and conventions. Terrarium provides a common Elixir interface so your code doesn't couple to any single provider.
+The AI agent ecosystem is producing many sandbox environment providers - Daytona, E2B, Modal, Fly Sprites, Namespace, and more. Each has its own API, SDK, and conventions. Terrarium provides a common Elixir interface so your code doesn't couple to any single provider.
 
 ## Features
 
-- **Provider behaviour** — a single contract for creating, destroying, and querying sandbox environments
-- **Process execution** — run commands in sandboxes with structured results
-- **File operations** — read, write, and list files within sandboxes
-- **Named providers** — configure multiple providers with their credentials, pick a default
-- **Local provider** — built-in provider for dev/test that runs everything on the local machine
-- **Serialization** — persist and restore sandbox references across client restarts
-- **Provider-agnostic** — swap providers without changing application code
+- **Provider behaviour** - a single contract for creating, destroying, and querying sandbox environments
+- **Process execution** - run commands in sandboxes with structured results
+- **File operations** - read, write, and list files within sandboxes
+- **Named providers** - configure multiple providers with their credentials, pick a default
+- **Local provider** - built-in provider for dev/test that runs everything on the local machine
+- **Serialization** - persist and restore sandbox references across client restarts
+- **Provider-agnostic** - swap providers without changing application code
 
 ## Installation
 
@@ -161,7 +161,7 @@ defmodule MyProvider do
     {:ok, %Terrarium.Process.Result{exit_code: 0, stdout: output}}
   end
 
-  # File operations are optional — defaults return {:error, :not_supported}
+  # File operations are optional - defaults return {:error, :not_supported}
   @impl true
   def read_file(sandbox, path) do
     {:ok, content}
