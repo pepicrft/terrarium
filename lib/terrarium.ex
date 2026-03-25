@@ -13,10 +13,23 @@ defmodule Terrarium do
   management, command execution, and file operations. Providers implement this
   behaviour to integrate with platforms like Daytona, E2B, Modal, Fly Sprites, and others.
 
+  ## Configuration
+
+  Configure a default provider so you don't have to pass it on every call:
+
+      # config/config.exs
+      config :terrarium, provider: Terrarium.Providers.Local
+
+      # config/prod.exs
+      config :terrarium, provider: Terrarium.Daytona
+
   ## Usage
 
-      # Create a sandbox
-      {:ok, sandbox} = Terrarium.create(MyApp.Sandbox.Daytona, image: "debian:12", resources: %{cpu: 2, memory: 4})
+      # Using the configured default provider
+      {:ok, sandbox} = Terrarium.create(image: "debian:12")
+
+      # Or explicitly passing a provider
+      {:ok, sandbox} = Terrarium.create(MyApp.Sandbox.Daytona, image: "debian:12")
 
       # Execute commands
       {:ok, result} = Terrarium.exec(sandbox, "echo hello")
@@ -32,7 +45,7 @@ defmodule Terrarium do
   alias Terrarium.Sandbox
 
   @doc """
-  Creates a new sandbox using the given provider.
+  Creates a new sandbox using the given provider, or the configured default.
 
   ## Options
 
@@ -43,19 +56,38 @@ defmodule Terrarium do
 
   ## Examples
 
+      # With configured default provider
+      {:ok, sandbox} = Terrarium.create(image: "debian:12")
+
+      # With explicit provider
       {:ok, sandbox} = Terrarium.create(MyProvider, image: "debian:12")
   """
-  @spec create(module(), keyword()) :: {:ok, Sandbox.t()} | {:error, term()}
-  def create(provider, opts \\ []) do
+  @spec create(module() | keyword(), keyword()) :: {:ok, Sandbox.t()} | {:error, term()}
+  def create(provider_or_opts \\ [], opts \\ [])
+
+  def create(provider, opts) when is_atom(provider) do
     provider.create(opts)
+  end
+
+  def create(opts, []) when is_list(opts) do
+    default_provider!().create(opts)
   end
 
   @doc """
   Creates a new sandbox, raising on error.
   """
-  @spec create!(module(), keyword()) :: Sandbox.t()
-  def create!(provider, opts \\ []) do
+  @spec create!(module() | keyword(), keyword()) :: Sandbox.t()
+  def create!(provider_or_opts \\ [], opts \\ [])
+
+  def create!(provider, opts) when is_atom(provider) do
     case create(provider, opts) do
+      {:ok, sandbox} -> sandbox
+      {:error, reason} -> raise "Failed to create sandbox: #{inspect(reason)}"
+    end
+  end
+
+  def create!(opts, []) when is_list(opts) do
+    case create(opts) do
       {:ok, sandbox} -> sandbox
       {:error, reason} -> raise "Failed to create sandbox: #{inspect(reason)}"
     end
@@ -156,5 +188,17 @@ defmodule Terrarium do
   @spec ls(Sandbox.t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def ls(%Sandbox{provider: provider} = sandbox, path) do
     provider.ls(sandbox, path)
+  end
+
+  defp default_provider! do
+    case Application.get_env(:terrarium, :provider) do
+      nil ->
+        raise ArgumentError,
+              "no default provider configured. Either pass a provider module explicitly " <>
+                "or set one in your config: config :terrarium, provider: Terrarium.Providers.Local"
+
+      provider ->
+        provider
+    end
   end
 end
