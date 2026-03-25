@@ -47,7 +47,21 @@ config :terrarium,
   ]
 ```
 
-For development, you can use the built-in local provider:
+Connect to an existing machine via SSH:
+
+```elixir
+config :terrarium,
+  default: :server,
+  providers: [
+    server: {Terrarium.Providers.SSH,
+      host: "dev.example.com",
+      user: "deploy",
+      key: System.fetch_env!("SSH_PRIVATE_KEY")
+    }
+  ]
+```
+
+For development, use the built-in local provider:
 
 ```elixir
 # config/dev.exs

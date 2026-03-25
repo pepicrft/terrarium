@@ -25,14 +25,29 @@ defmodule Terrarium.Providers.SSH do
   - `:port` — SSH port (default: `22`)
   - `:password` — password for authentication
   - `:user_dir` — directory containing SSH keys (default: `~/.ssh`)
+  - `:key` — private key as a PEM string (e.g., from an env var)
+  - `:key_path` — path to a specific private key file
   - `:connect_timeout` — connection timeout in milliseconds (default: `10_000`)
   - `:cwd` — default working directory on the remote host (default: `"/"`)
 
   ## Authentication
 
-  Supports password and key-based authentication. For key-based auth, place
-  your keys (`id_rsa`, `id_ed25519`, etc.) in the `:user_dir` directory.
-  The `:ssh` module discovers them automatically.
+  Supports three authentication methods:
+
+  - **Password** — `:password` option
+  - **Key directory** — `:user_dir` option, auto-discovers keys in the directory
+  - **Specific key** — `:key` (PEM string) or `:key_path` (file path)
+
+  ### Examples
+
+      # Password auth
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", password: "secret"}
+
+      # Key from a file
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", key_path: "~/.ssh/id_ed25519"}
+
+      # Key from an environment variable
+      {Terrarium.Providers.SSH, host: "example.com", user: "deploy", key: System.fetch_env!("SSH_PRIVATE_KEY")}
   """
 
   use Terrarium.Provider
@@ -56,7 +71,7 @@ defmodule Terrarium.Providers.SSH do
         user_interaction: false
       ]
       |> maybe_add(:password, opts)
-      |> maybe_add(:user_dir, opts)
+      |> maybe_add_key_opts(opts)
 
     case :ssh.connect(to_charlist(host), port, ssh_opts, connect_timeout) do
       {:ok, conn} ->
@@ -229,10 +244,19 @@ defmodule Terrarium.Providers.SSH do
     end
   end
 
-  defp maybe_add(ssh_opts, :user_dir, opts) do
-    case Keyword.fetch(opts, :user_dir) do
-      {:ok, dir} -> Keyword.put(ssh_opts, :user_dir, to_charlist(Path.expand(dir)))
-      :error -> ssh_opts
+  defp maybe_add_key_opts(ssh_opts, opts) do
+    cond do
+      Keyword.has_key?(opts, :key) ->
+        Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key: opts[:key]})
+
+      Keyword.has_key?(opts, :key_path) ->
+        Keyword.put(ssh_opts, :key_cb, {Terrarium.Providers.SSH.KeyCb, key_path: opts[:key_path]})
+
+      Keyword.has_key?(opts, :user_dir) ->
+        Keyword.put(ssh_opts, :user_dir, to_charlist(Path.expand(opts[:user_dir])))
+
+      true ->
+        ssh_opts
     end
   end
 end
