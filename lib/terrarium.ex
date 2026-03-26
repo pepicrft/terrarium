@@ -233,6 +233,42 @@ defmodule Terrarium do
   end
 
   @doc """
+  Replicates the current BEAM application into a sandbox.
+
+  Detects the local OTP version, installs a matching Erlang in the sandbox,
+  deploys the running node's code, and starts a connected peer node over SSH.
+
+  ## Options
+
+  - `:name` — atom name for the remote node (default: `:"terrarium_<sandbox.id>"`)
+  - `:env` — environment variables for the remote VM (map)
+  - `:erl_args` — additional `erl` arguments as a string
+  - `:dest` — remote directory for deployed code (default: `"/opt/terrarium/release"`)
+  - `:timeout` — timeout for Erlang installation in ms (default: `300_000`)
+
+  ## Examples
+
+      {:ok, pid, node} = Terrarium.replicate(sandbox)
+      :erpc.call(node, MyModule, :my_function, [args])
+  """
+  @spec replicate(Sandbox.t(), keyword()) :: {:ok, pid(), node()} | {:error, term()}
+  def replicate(%Sandbox{} = sandbox, opts \\ []) do
+    Terrarium.Runtime.run(sandbox, opts)
+  end
+
+  @doc """
+  Stops a replica started by `replicate/2`.
+
+  ## Examples
+
+      :ok = Terrarium.stop_replica(pid)
+  """
+  @spec stop_replica(pid()) :: :ok
+  def stop_replica(peer_pid) do
+    Terrarium.Runtime.stop(peer_pid)
+  end
+
+  @doc """
   Lists the contents of a directory in the sandbox.
 
   ## Examples

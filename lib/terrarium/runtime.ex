@@ -1,39 +1,5 @@
 defmodule Terrarium.Runtime do
-  @moduledoc """
-  Run the current BEAM application in a remote sandbox.
-
-  This module provides a single high-level primitive: take the running Erlang/OTP
-  node, replicate it inside a Terrarium sandbox (same OTP version, same code),
-  and return a connected peer node you can call into with `:erpc` or `:rpc`.
-
-  ## Usage
-
-      {:ok, sandbox} = Terrarium.create(:daytona, api_key: "...")
-      {:ok, pid, node} = Terrarium.Runtime.run(sandbox)
-
-      # Call into the remote node
-      :erpc.call(node, MyModule, :my_function, [args])
-
-      # When done
-      :ok = Terrarium.Runtime.stop(pid)
-      :ok = Terrarium.destroy(sandbox)
-
-  ## What `run/2` does
-
-  1. Detects the local OTP version from the running VM
-  2. Ensures the same version is installed in the sandbox
-  3. Tarballs the current node's BEAM files and deploys them
-  4. Starts a remote peer node via SSH (using `Terrarium.Peer`)
-  5. Returns `{:ok, peer_pid, node}` with a connected node
-
-  ## Options
-
-  - `:name` — atom name for the remote node (default: `:"terrarium_<sandbox.id>"`)
-  - `:env` — environment variables for the remote VM (map)
-  - `:erl_args` — additional `erl` arguments as a string
-  - `:dest` — remote directory for deployed code (default: `"/opt/terrarium/release"`)
-  - `:timeout` — timeout for Erlang installation in ms (default: `300_000`)
-  """
+  @moduledoc false
 
   alias Terrarium.Sandbox
 
@@ -73,7 +39,7 @@ defmodule Terrarium.Runtime do
       dest: dest
     )
 
-    :telemetry.span([:terrarium, :runtime, :run], %{sandbox: sandbox, otp_version: otp_version}, fn ->
+    :telemetry.span([:terrarium, :replicate], %{sandbox: sandbox, otp_version: otp_version}, fn ->
       with :ok <- ensure_erlang(sandbox, otp_version, timeout),
            :ok <- deploy_code(sandbox, dest),
            {:ok, pid, node} <- start_peer(sandbox, dest, opts) do

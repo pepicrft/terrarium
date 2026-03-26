@@ -21,7 +21,7 @@ defmodule Terrarium.RuntimeTest do
         })
 
       # Gets past ensure_erlang and deploy_code, fails at Terrarium.Peer.start (no real SSH)
-      result = Terrarium.Runtime.run(sandbox)
+      result = Terrarium.replicate(sandbox)
       assert {:error, _reason} = result
     end
 
@@ -33,7 +33,7 @@ defmodule Terrarium.RuntimeTest do
           "mise install" => {:ok, %Terrarium.Process.Result{exit_code: 0, stdout: "", stderr: ""}}
         })
 
-      result = Terrarium.Runtime.run(sandbox)
+      result = Terrarium.replicate(sandbox)
       assert {:error, _reason} = result
     end
 
@@ -46,7 +46,7 @@ defmodule Terrarium.RuntimeTest do
           "apt-get" => {:ok, %Terrarium.Process.Result{exit_code: 0, stdout: "", stderr: ""}}
         })
 
-      result = Terrarium.Runtime.run(sandbox)
+      result = Terrarium.replicate(sandbox)
       assert {:error, _reason} = result
     end
 
@@ -60,7 +60,7 @@ defmodule Terrarium.RuntimeTest do
           "apk add" => {:ok, %Terrarium.Process.Result{exit_code: 0, stdout: "", stderr: ""}}
         })
 
-      result = Terrarium.Runtime.run(sandbox)
+      result = Terrarium.replicate(sandbox)
       assert {:error, _reason} = result
     end
 
@@ -73,7 +73,7 @@ defmodule Terrarium.RuntimeTest do
           "which apk" => {:ok, %Terrarium.Process.Result{exit_code: 1, stdout: "", stderr: ""}}
         })
 
-      assert {:error, :no_supported_installer} = Terrarium.Runtime.run(sandbox)
+      assert {:error, :no_supported_installer} = Terrarium.replicate(sandbox)
     end
 
     test "returns error when install command fails" do
@@ -84,13 +84,13 @@ defmodule Terrarium.RuntimeTest do
           "mise install" => {:ok, %Terrarium.Process.Result{exit_code: 1, stdout: "", stderr: "version not found"}}
         })
 
-      assert {:error, {:install_failed, 1, "version not found"}} = Terrarium.Runtime.run(sandbox)
+      assert {:error, {:install_failed, 1, "version not found"}} = Terrarium.replicate(sandbox)
     end
   end
 
-  describe "stop/1" do
+  describe "stop_replica/1" do
     test "is defined" do
-      assert {:stop, 1} in Terrarium.Runtime.__info__(:functions)
+      assert {:stop_replica, 1} in Terrarium.__info__(:functions)
     end
   end
 end
