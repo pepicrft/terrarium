@@ -70,12 +70,7 @@ defmodule Terrarium.Peer do
   """
   @spec start(Sandbox.t(), keyword()) :: {:ok, pid(), node()} | {:error, term()}
   def start(%Sandbox{} = sandbox, opts \\ []) do
-    metadata = %{sandbox: sandbox, opts: opts}
-
-    :telemetry.span([:terrarium, :peer, :start], metadata, fn ->
-      result = do_start(sandbox, opts)
-      {result, %{result: result}}
-    end)
+    do_start(sandbox, opts)
   end
 
   @doc """
@@ -89,12 +84,7 @@ defmodule Terrarium.Peer do
   """
   @spec stop(pid()) :: :ok
   def stop(peer_pid) do
-    metadata = %{peer_pid: peer_pid}
-
-    :telemetry.span([:terrarium, :peer, :stop], metadata, fn ->
-      result = :peer.stop(peer_pid)
-      {result, %{result: result}}
-    end)
+    :peer.stop(peer_pid)
   end
 
   @doc """
