@@ -62,6 +62,7 @@ defmodule Terrarium.Peer do
   - `:pa_paths` — list of code paths to add via `-pa` flags
   - `:env` — map of environment variables to set before starting `erl`
   - `:erl_args` — additional erl arguments as a string
+  - `:erl_cmd` — command to start Erlang (default: `"erl"`, e.g. `"mise x erlang@28 -- erl"`)
 
   ## Examples
 
@@ -113,8 +114,9 @@ defmodule Terrarium.Peer do
       pa_paths = Keyword.get(opts, :pa_paths, [])
       env = Keyword.get(opts, :env, %{})
       erl_args = Keyword.get(opts, :erl_args, "")
+      erl_cmd = Keyword.get(opts, :erl_cmd, "erl")
 
-      {:ok, exec_info} = build_exec_info(ssh_config, env, pa_paths, erl_args)
+      {:ok, exec_info} = build_exec_info(ssh_config, env, pa_paths, erl_args, erl_cmd)
 
       peer_opts = %{
         name: name,
@@ -140,7 +142,7 @@ defmodule Terrarium.Peer do
     end
   end
 
-  defp build_exec_info(ssh_config, env, pa_paths, erl_args) do
+  defp build_exec_info(ssh_config, env, pa_paths, erl_args, erl_cmd) do
     host = ssh_config[:host]
     port = ssh_config[:port] || 22
     user = ssh_config[:user]
@@ -148,7 +150,7 @@ defmodule Terrarium.Peer do
 
     {:ok, auth_info} = build_auth(auth)
 
-    erl_cmd = build_erl_command(pa_paths, env, erl_args)
+    erl_cmd = build_erl_command(pa_paths, env, erl_args, erl_cmd)
 
     ssh_args =
       @ssh_base_args ++
@@ -234,7 +236,7 @@ defmodule Terrarium.Peer do
      }}
   end
 
-  defp build_erl_command(pa_paths, env, erl_args) do
+  defp build_erl_command(pa_paths, env, erl_args, erl_cmd) do
     env_prefix =
       env
       |> Enum.map_join(" ", fn {k, v} -> "#{k}=#{escape_shell(v)}" end)
@@ -247,7 +249,7 @@ defmodule Terrarium.Peer do
     parts =
       [
         if(env_prefix != "", do: env_prefix),
-        "erl",
+        erl_cmd,
         "-noinput",
         if(pa_flags != "", do: pa_flags),
         if(erl_args != "", do: erl_args)
