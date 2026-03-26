@@ -1,6 +1,19 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.3.0] - 2026-03-26
+
+### Bug Fixes
+
+- fix: Correct module attribute ordering to satisfy formatter
+
+
+### Features
+
+- feat: Add Terrarium.transfer/4 for efficient bulk file transfer
+
+- feat: Add debug-level logging to all public Terrarium functions
+
 ## [0.2.1] - 2026-03-25
 
 ### Changes
