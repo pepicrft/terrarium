@@ -34,7 +34,7 @@ defmodule Terrarium.IntegrationTest do
     test "passes environment variables", ctx do
       sandbox = create_sandbox(ctx)
 
-      {:ok, result} = Terrarium.exec(sandbox, "echo $MY_VAR", env: %{"MY_VAR" => "hello"})
+      {:ok, result} = Terrarium.exec(sandbox, "printenv MY_VAR", env: %{"MY_VAR" => "hello"})
       assert String.trim(result.stdout) == "hello"
     end
 
