@@ -26,12 +26,13 @@ defmodule Terrarium.Sandbox do
   @type t :: %__MODULE__{
           id: String.t(),
           provider: module(),
+          name: String.t() | nil,
           state: map()
         }
 
-  @derive {JSON.Encoder, only: [:id, :provider, :state]}
+  @derive {JSON.Encoder, only: [:id, :provider, :name, :state]}
   @enforce_keys [:id, :provider]
-  defstruct [:id, :provider, state: %{}]
+  defstruct [:id, :provider, :name, state: %{}]
 
   @doc """
   Serializes a sandbox to a plain map suitable for persistence.
@@ -43,13 +44,14 @@ defmodule Terrarium.Sandbox do
 
       iex> sandbox = %Terrarium.Sandbox{id: "abc", provider: MyProvider, state: %{"token" => "xyz"}}
       iex> Terrarium.Sandbox.to_map(sandbox)
-      %{"id" => "abc", "provider" => "Elixir.MyProvider", "state" => %{"token" => "xyz"}}
+      %{"id" => "abc", "provider" => "Elixir.MyProvider", "name" => nil, "state" => %{"token" => "xyz"}}
   """
   @spec to_map(t()) :: map()
-  def to_map(%__MODULE__{id: id, provider: provider, state: state}) do
+  def to_map(%__MODULE__{id: id, provider: provider, name: name, state: state}) do
     %{
       "id" => id,
       "provider" => Atom.to_string(provider),
+      "name" => name,
       "state" => state
     }
   end
@@ -67,10 +69,11 @@ defmodule Terrarium.Sandbox do
       %Terrarium.Sandbox{id: "abc", provider: MyProvider, state: %{"token" => "xyz"}}
   """
   @spec from_map(map()) :: t()
-  def from_map(%{"id" => id, "provider" => provider, "state" => state}) do
+  def from_map(%{"id" => id, "provider" => provider, "state" => state} = data) do
     %__MODULE__{
       id: id,
       provider: String.to_existing_atom(provider),
+      name: Map.get(data, "name"),
       state: state
     }
   end

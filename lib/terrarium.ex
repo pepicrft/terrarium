@@ -67,6 +67,7 @@ defmodule Terrarium do
 
   Options are provider-specific. Common options include:
 
+  - `:name` — a human-readable name for the sandbox; providers may use this to label the environment
   - `:image` — the base image for the sandbox
   - `:resources` — CPU, memory, and disk configuration
   - `:provider` — inline provider as a module or `{module, opts}` tuple

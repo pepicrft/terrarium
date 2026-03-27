@@ -98,6 +98,7 @@ defmodule TerrariumTest do
       assert map == %{
                "id" => "test-123",
                "provider" => "Elixir.Terrarium.TestProvider",
+               "name" => nil,
                "state" => %{"token" => "abc"}
              }
     end
