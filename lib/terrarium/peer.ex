@@ -140,7 +140,7 @@ defmodule Terrarium.Peer do
 
     script = """
     #!/bin/sh
-    exec #{ssh_cmd} '#{erl_command} "$@"'
+    exec #{ssh_cmd} "#{erl_command} $@"
     """
 
     File.write!(script_path, script)
