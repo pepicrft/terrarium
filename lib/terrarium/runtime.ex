@@ -39,8 +39,9 @@ defmodule Terrarium.Runtime do
     :telemetry.span([:terrarium, :replicate], %{sandbox: sandbox, otp_version: otp_version}, fn ->
       with :ok <- ensure_mise(sandbox),
            {:ok, dest} <- resolve_dest(sandbox, dest),
+           {:ok, erl_path} <- install_erlang(sandbox, otp_version),
            :ok <- deploy_code(sandbox, dest),
-           {:ok, pid, node} <- start_peer(sandbox, otp_version, dest, opts) do
+           {:ok, pid, node} <- start_peer(sandbox, erl_path, dest, opts) do
         Logger.info("Runtime started in sandbox",
           sandbox_id: sandbox.id,
           node: node,
@@ -125,6 +126,48 @@ defmodule Terrarium.Runtime do
   end
 
   # ============================================================================
+  # Erlang Installation
+  # ============================================================================
+
+  defp install_erlang(sandbox, otp_version) do
+    remote_home = resolve_remote_home(sandbox)
+    mise = "#{remote_home}/.local/bin/mise"
+
+    Logger.info("Installing Erlang #{otp_version} via mise", sandbox_id: sandbox.id)
+
+    case Terrarium.exec(sandbox, "#{mise} install erlang@#{otp_version}", timeout: 600_000) do
+      {:ok, %{exit_code: 0}} ->
+        # Get the install path to find the erl binary
+        case Terrarium.exec(sandbox, "#{mise} where erlang@#{otp_version}") do
+          {:ok, %{exit_code: 0, stdout: path}} ->
+            erl_path = Path.join(String.trim(path), "bin/erl")
+            Logger.info("Erlang #{otp_version} ready", sandbox_id: sandbox.id, erl_path: erl_path)
+            {:ok, erl_path}
+
+          {:ok, %{exit_code: code, stderr: stderr}} ->
+            {:error, {:mise_where_failed, code, stderr}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:ok, %{exit_code: code, stderr: stderr}} ->
+        Logger.error("Erlang installation failed", sandbox_id: sandbox.id, reason: stderr)
+        {:error, {:erlang_install_failed, code, stderr}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp resolve_remote_home(sandbox) do
+    case Terrarium.exec(sandbox, "echo $HOME") do
+      {:ok, %{exit_code: 0, stdout: home}} -> String.trim(home)
+      _ -> "/root"
+    end
+  end
+
+  # ============================================================================
   # Code Deployment
   # ============================================================================
 
@@ -172,16 +215,12 @@ defmodule Terrarium.Runtime do
   # Peer Node
   # ============================================================================
 
-  defp start_peer(sandbox, otp_version, dest, opts) do
-    # Derive the remote home dir from the resolved dest path
-    # (dest is already absolute, e.g. /home/exedev/.terrarium/release)
-    remote_home = dest |> Path.split() |> Enum.take(3) |> Path.join()
-
+  defp start_peer(sandbox, erl_path, dest, opts) do
     peer_opts =
       opts
       |> Keyword.take([:name, :env, :erl_args])
       |> Keyword.put(:pa_paths, ["#{dest}/*/ebin"])
-      |> Keyword.put(:erl_cmd, "#{remote_home}/.local/bin/mise x erlang@#{otp_version} -- erl")
+      |> Keyword.put(:erl_cmd, erl_path)
 
     Terrarium.Peer.start(sandbox, peer_opts)
   end
