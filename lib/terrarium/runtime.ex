@@ -219,7 +219,7 @@ defmodule Terrarium.Runtime do
     peer_opts =
       opts
       |> Keyword.take([:name, :env, :erl_args])
-      |> Keyword.put(:pa_paths, ["#{dest}/*/ebin"])
+      |> Keyword.put(:pa_paths, ["#{dest}/ebin"])
       |> Keyword.put(:erl_cmd, erl_path)
 
     Terrarium.Peer.start(sandbox, peer_opts)
