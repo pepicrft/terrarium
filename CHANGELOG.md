@@ -1,6 +1,12 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.9.0] - 2026-03-28
+
+### Features
+
+- feat: Deploy only app code, install Elixir via mise on remote
+
 ## [0.8.1] - 2026-03-28
 
 ### Bug Fixes
