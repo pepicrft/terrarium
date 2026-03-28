@@ -17,7 +17,7 @@ defmodule Terrarium.Providers.Local do
 
   use Terrarium.Provider
 
-  @exec_retries 1
+  @exec_retries 3
 
   @impl true
   def create(opts) do
@@ -73,7 +73,7 @@ defmodule Terrarium.Providers.Local do
   end
 
   defp retry_exec(command, work_dir, env, timeout, retries_left, _reason) when retries_left > 0 do
-    Process.sleep(10)
+    Process.sleep((@exec_retries - retries_left + 1) * 25)
     exec_with_retries(command, work_dir, env, timeout, retries_left - 1)
   end
 
