@@ -1,0 +1,33 @@
+[remote.github]
+owner = "pepicrft"
+repo = "terrarium"
+
+[changelog]
+body = """
+{% for group, commits in commits | group_by(attribute="group") -%}
+### {{ group }}
+{% for commit in commits %}
+- {% if commit.remote.pr_title %}{{ commit.remote.pr_title }}{% else %}{{ commit.message | split(pat="\n") | first | trim }}{% endif %}{% if commit.remote.pr_number %} ([#{{ commit.remote.pr_number }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.remote.pr_number }})){% else %} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }})){% endif %}{% if commit.remote.username %} by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% elif commit.author.email | split(pat="@") | first == "pepicrft" %} by [@pepicrft](https://github.com/pepicrft){% elif commit.author.email | split(pat="@") | first == "41898282+github-actions[bot]" %} by [@github-actions[bot]](https://github.com/apps/github-actions){% elif commit.author.email | split(pat="@") | first == "29139614+renovate[bot]" %} by [@renovate[bot]](https://github.com/apps/renovate){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = false
+filter_unconventional = false
+split_commits = false
+commit_parsers = [
+  { field = "merge_commit", pattern = "true", skip = true },
+  { message = "^\\[Release\\]", skip = true },
+  { message = "(?i)(readme|documentation|tutorial|\\bdocs?\\b)", skip = true },
+  { message = "(?i)(github actions|\\bworkflow\\b|\\bpipeline\\b|\\bci\\b)", skip = true },
+  { message = "^(?i)(test|spec|chore)", skip = true },
+  { body = "(?i)security", group = "Security" },
+  { message = "^(?i)(fix|bugfix|hotfix|correct|prevent|handle)", group = "Bug Fixes" },
+  { message = "^(?i)(feat|add|allow|adapt|create|implement|introduce|make|preserve|rename|support|use)", group = "Features" },
+  { message = ".*", group = "Changes" },
+]
+filter_commits = true
+tag_pattern = "[0-9].*"
+sort_commits = "oldest"
