@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.8.1] - 2026-03-28
+
+### Bug Fixes
+
+- fix: Pre-install Erlang before starting peer to avoid stdin consumption
+
+- fix: Correct -pa path to match deployed tarball structure
+
 ## [0.8.0] - 2026-03-28
 
 ### Features
