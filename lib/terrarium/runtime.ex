@@ -10,8 +10,8 @@ defmodule Terrarium.Runtime do
   @doc """
   Runs the current BEAM application in the given sandbox.
 
-  Installs a matching Erlang/OTP version, deploys the running node's code,
-  and starts a connected peer node over SSH.
+  Ensures `mise` is available in the sandbox, deploys the running node's code,
+  and starts a connected peer node over SSH using the host OTP version.
 
   ## Options
 
@@ -19,7 +19,6 @@ defmodule Terrarium.Runtime do
   - `:env` — environment variables for the remote VM (map)
   - `:erl_args` — additional `erl` arguments as a string
   - `:dest` — remote directory for deployed code (default: `"#{@default_dest}"`)
-  - `:timeout` — timeout for Erlang installation in ms (default: `#{@default_timeout}`)
 
   ## Examples
 
