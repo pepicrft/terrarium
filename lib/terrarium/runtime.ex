@@ -39,9 +39,9 @@ defmodule Terrarium.Runtime do
     :telemetry.span([:terrarium, :replicate], %{sandbox: sandbox, otp_version: otp_version}, fn ->
       with :ok <- ensure_mise(sandbox),
            {:ok, dest} <- resolve_dest(sandbox, dest),
-           {:ok, erl_path} <- install_erlang(sandbox, otp_version),
+           {:ok, runtime} <- install_erlang(sandbox, otp_version),
            :ok <- deploy_code(sandbox, dest),
-           {:ok, pid, node} <- start_peer(sandbox, erl_path, dest, opts) do
+           {:ok, pid, node} <- start_peer(sandbox, runtime, dest, opts) do
         Logger.info("Runtime started in sandbox",
           sandbox_id: sandbox.id,
           node: node,
@@ -132,28 +132,38 @@ defmodule Terrarium.Runtime do
   defp install_erlang(sandbox, otp_version) do
     remote_home = resolve_remote_home(sandbox)
     mise = "#{remote_home}/.local/bin/mise"
+    elixir_version = System.version()
 
-    Logger.info("Installing Erlang #{otp_version} via mise", sandbox_id: sandbox.id)
+    Logger.info("Installing Erlang #{otp_version} and Elixir #{elixir_version} via mise",
+      sandbox_id: sandbox.id
+    )
 
-    case Terrarium.exec(sandbox, "#{mise} install erlang@#{otp_version}", timeout: 600_000) do
+    install_cmd = "#{mise} install erlang@#{otp_version} elixir@#{elixir_version}"
+
+    case Terrarium.exec(sandbox, install_cmd, timeout: 600_000) do
       {:ok, %{exit_code: 0}} ->
-        # Get the install path to find the erl binary
-        case Terrarium.exec(sandbox, "#{mise} where erlang@#{otp_version}") do
-          {:ok, %{exit_code: 0, stdout: path}} ->
-            erl_path = Path.join(String.trim(path), "bin/erl")
-            Logger.info("Erlang #{otp_version} ready", sandbox_id: sandbox.id, erl_path: erl_path)
-            {:ok, erl_path}
+        with {:ok, %{exit_code: 0, stdout: erl_where}} <-
+               Terrarium.exec(sandbox, "#{mise} where erlang@#{otp_version}"),
+             {:ok, %{exit_code: 0, stdout: elixir_where}} <-
+               Terrarium.exec(sandbox, "#{mise} where elixir@#{elixir_version}") do
+          erl_path = Path.join(String.trim(erl_where), "bin/erl")
+          elixir_lib = Path.join(String.trim(elixir_where), "lib")
 
-          {:ok, %{exit_code: code, stderr: stderr}} ->
-            {:error, {:mise_where_failed, code, stderr}}
+          Logger.info("Runtime ready",
+            sandbox_id: sandbox.id,
+            erl_path: erl_path,
+            elixir_lib: elixir_lib
+          )
 
-          {:error, reason} ->
-            {:error, reason}
+          {:ok, %{erl_path: erl_path, elixir_lib: elixir_lib}}
+        else
+          {:ok, %{exit_code: code, stderr: stderr}} -> {:error, {:mise_where_failed, code, stderr}}
+          {:error, reason} -> {:error, reason}
         end
 
       {:ok, %{exit_code: code, stderr: stderr}} ->
-        Logger.error("Erlang installation failed", sandbox_id: sandbox.id, reason: stderr)
-        {:error, {:erlang_install_failed, code, stderr}}
+        Logger.error("Installation failed", sandbox_id: sandbox.id, reason: stderr)
+        {:error, {:install_failed, code, stderr}}
 
       {:error, reason} ->
         {:error, reason}
@@ -172,12 +182,20 @@ defmodule Terrarium.Runtime do
   # ============================================================================
 
   defp deploy_code(sandbox, dest) do
+    # Only deploy application code paths, not OTP or Elixir stdlib.
+    # Those are already available on the remote via mise.
+    otp_lib = :code.lib_dir() |> List.to_string()
+    elixir_lib = :code.lib_dir(:elixir) |> List.to_string() |> Path.dirname()
+
     paths =
       :code.get_path()
       |> Enum.map(&List.to_string/1)
       |> Enum.filter(&File.dir?/1)
+      |> Enum.reject(fn p ->
+        String.starts_with?(p, otp_lib) or String.starts_with?(p, elixir_lib)
+      end)
 
-    Logger.debug("Creating tarball from #{length(paths)} code paths", sandbox_id: sandbox.id)
+    Logger.debug("Creating tarball from #{length(paths)} code paths (app only)", sandbox_id: sandbox.id)
 
     tarball_path = Path.join(System.tmp_dir!(), "terrarium_deploy_#{System.unique_integer([:positive])}.tar.gz")
     file_args = Enum.flat_map(paths, fn path -> ["-C", Path.dirname(path), Path.basename(path)] end)
@@ -215,12 +233,18 @@ defmodule Terrarium.Runtime do
   # Peer Node
   # ============================================================================
 
-  defp start_peer(sandbox, erl_path, dest, opts) do
+  defp start_peer(sandbox, runtime, dest, opts) do
+    # Include app code + Elixir stdlib paths
+    pa_paths = [
+      "#{dest}/ebin",
+      "#{runtime.elixir_lib}/*/ebin"
+    ]
+
     peer_opts =
       opts
       |> Keyword.take([:name, :env, :erl_args])
-      |> Keyword.put(:pa_paths, ["#{dest}/ebin"])
-      |> Keyword.put(:erl_cmd, erl_path)
+      |> Keyword.put(:pa_paths, pa_paths)
+      |> Keyword.put(:erl_cmd, runtime.erl_path)
 
     Terrarium.Peer.start(sandbox, peer_opts)
   end
