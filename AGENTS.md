@@ -3,6 +3,7 @@
 ## Workflow
 
 - After every change, create a git commit and push it to the current branch.
+- Open pull requests with a title that follows Conventional Commits.
 
 ## Testing
 
