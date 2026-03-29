@@ -249,10 +249,14 @@ defmodule Terrarium.Runtime do
       "#{runtime.elixir_lib}/*/ebin"
     ]
 
+    # Set ERL_LIBS so :code.lib_dir/1 and Application.app_dir/1 resolve correctly
+    env = Map.put(Keyword.get(opts, :env, %{}), "ERL_LIBS", dest)
+
     peer_opts =
       opts
-      |> Keyword.take([:name, :env, :erl_args])
+      |> Keyword.take([:name, :erl_args])
       |> Keyword.put(:pa_paths, pa_paths)
+      |> Keyword.put(:env, env)
       |> Keyword.put(:erl_cmd, runtime.erl_path)
 
     Terrarium.Peer.start(sandbox, peer_opts)
