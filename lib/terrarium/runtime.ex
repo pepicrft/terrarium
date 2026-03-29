@@ -219,7 +219,7 @@ defmodule Terrarium.Runtime do
 
           remote_tarball = "#{dest}/deploy.tar.gz"
 
-          with {:ok, %{exit_code: 0}} <- Terrarium.exec(sandbox, "mkdir -p #{dest}"),
+          with {:ok, %{exit_code: 0}} <- Terrarium.exec(sandbox, "rm -rf #{dest} && mkdir -p #{dest}"),
                :ok <- Terrarium.transfer(sandbox, tarball_path, remote_tarball),
                {:ok, %{exit_code: 0}} <- Terrarium.exec(sandbox, "tar xzf #{remote_tarball} -C #{dest}"),
                {:ok, %{exit_code: 0}} <- Terrarium.exec(sandbox, "rm -f #{remote_tarball}") do
