@@ -184,10 +184,12 @@ defmodule Terrarium.Runtime do
   defp deploy_code(sandbox, dest) do
     # Only deploy application code paths, not OTP or Elixir stdlib.
     # Those are already available on the remote via mise.
+    # Include both ebin/ and priv/ directories (priv contains data files
+    # needed by some deps like llm_db).
     otp_lib = :code.lib_dir() |> List.to_string()
     elixir_lib = :code.lib_dir(:elixir) |> List.to_string() |> Path.dirname()
 
-    paths =
+    ebin_paths =
       :code.get_path()
       |> Enum.map(&List.to_string/1)
       |> Enum.filter(&File.dir?/1)
@@ -195,10 +197,17 @@ defmodule Terrarium.Runtime do
         String.starts_with?(p, otp_lib) or String.starts_with?(p, elixir_lib)
       end)
 
-    Logger.debug("Creating tarball from #{length(paths)} code paths (app only)", sandbox_id: sandbox.id)
+    # Deploy entire app directories (app-version/) to preserve the ebin/priv structure.
+    # This allows Application.app_dir/1 to find priv/ directories on the remote.
+    app_dirs =
+      ebin_paths
+      |> Enum.map(&Path.dirname/1)
+      |> Enum.uniq()
+
+    Logger.debug("Creating tarball from #{length(app_dirs)} app dirs", sandbox_id: sandbox.id)
 
     tarball_path = Path.join(System.tmp_dir!(), "terrarium_deploy_#{System.unique_integer([:positive])}.tar.gz")
-    file_args = Enum.flat_map(paths, fn path -> ["-C", Path.dirname(path), Path.basename(path)] end)
+    file_args = Enum.flat_map(app_dirs, fn dir -> ["-C", Path.dirname(dir), Path.basename(dir)] end)
 
     try do
       case System.cmd("tar", ["czf", tarball_path | file_args], stderr_to_stdout: true) do
@@ -236,7 +245,7 @@ defmodule Terrarium.Runtime do
   defp start_peer(sandbox, runtime, dest, opts) do
     # Include app code + Elixir stdlib paths
     pa_paths = [
-      "#{dest}/ebin",
+      "#{dest}/*/ebin",
       "#{runtime.elixir_lib}/*/ebin"
     ]
 
