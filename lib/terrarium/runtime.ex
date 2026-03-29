@@ -197,17 +197,28 @@ defmodule Terrarium.Runtime do
         String.starts_with?(p, otp_lib) or String.starts_with?(p, elixir_lib)
       end)
 
-    # Deploy entire app directories (app-version/) to preserve the ebin/priv structure.
-    # This allows Application.app_dir/1 to find priv/ directories on the remote.
+    # Deploy entire app directories to preserve the ebin/priv structure.
+    # Group by parent directory so each -C is followed by all its basenames,
+    # avoiding the issue where repeated -C to the same parent causes tar to
+    # only include the last basename.
     app_dirs =
       ebin_paths
       |> Enum.map(&Path.dirname/1)
+      |> Enum.reject(&(&1 == "."))
       |> Enum.uniq()
+
+    grouped =
+      app_dirs
+      |> Enum.group_by(&Path.dirname/1, &Path.basename/1)
 
     Logger.debug("Creating tarball from #{length(app_dirs)} app dirs", sandbox_id: sandbox.id)
 
     tarball_path = Path.join(System.tmp_dir!(), "terrarium_deploy_#{System.unique_integer([:positive])}.tar.gz")
-    file_args = Enum.flat_map(app_dirs, fn dir -> ["-C", Path.dirname(dir), Path.basename(dir)] end)
+
+    file_args =
+      Enum.flat_map(grouped, fn {parent, basenames} ->
+        ["-C", parent | basenames]
+      end)
 
     try do
       case System.cmd("tar", ["czf", tarball_path | file_args], stderr_to_stdout: true) do
