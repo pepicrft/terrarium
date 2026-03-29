@@ -1,6 +1,12 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.10.0] - 2026-03-29
+
+### Features
+
+- feat: Deploy app directories with priv/ for proper Application.app_dir (#16)
+
 ## [0.9.0] - 2026-03-28
 
 ### Features
