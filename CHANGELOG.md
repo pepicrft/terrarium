@@ -1,6 +1,12 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.11.3] - 2026-03-30
+
+### Bug Fixes
+
+- fix: Dereference symlinks in deploy tarball (-h flag)
+
 ## [0.11.2] - 2026-03-30
 
 ### Bug Fixes
