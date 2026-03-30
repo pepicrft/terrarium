@@ -260,8 +260,10 @@ defmodule Terrarium.Runtime do
       "#{runtime.elixir_lib}/*/ebin"
     ]
 
-    # Set ERL_LIBS so :code.lib_dir/1 and Application.app_dir/1 resolve correctly
-    env = Map.put(Keyword.get(opts, :env, %{}), "ERL_LIBS", dest)
+    # Set ERL_LIBS so :code.lib_dir/1 and Application.app_dir/1 resolve correctly.
+    # Include both the deploy dest (app code) and Elixir's lib dir (elixir, logger, etc.)
+    erl_libs = "#{dest}:#{runtime.elixir_lib}"
+    env = Map.put(Keyword.get(opts, :env, %{}), "ERL_LIBS", erl_libs)
 
     peer_opts =
       opts
