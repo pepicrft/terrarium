@@ -1,6 +1,12 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.11.2] - 2026-03-30
+
+### Bug Fixes
+
+- fix: Include Elixir lib in ERL_LIBS for remote peer
+
 ## [0.11.1] - 2026-03-29
 
 ### Bug Fixes
