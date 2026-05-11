@@ -14,5 +14,5 @@
   "muontrap": {:hex, :muontrap, "1.7.0", "ff6eda43839194dc342b81e02e764fd75389a8ab166318548f3aaec374846600", [:make, :mix], [{:elixir_make, "~> 0.6", [hex: :elixir_make, repo: "hexpm", optional: false]}], "hexpm", "7bd4a90ae008bf6a25554aa13497b2c05dfa1fcc34be5bdcb8fb4dec9b3422e3"},
   "nimble_parsec": {:hex, :nimble_parsec, "1.4.2", "8efba0122db06df95bfaa78f791344a89352ba04baedd3849593bfce4d0dc1c6", [:mix], [], "hexpm", "4b21398942dda052b403bbe1da991ccd03a053668d147d53fb8c4e0efe09c973"},
   "quokka": {:hex, :quokka, "2.12.1", "9fcdd6dbe6b8e950237e9c3b53c1da6d07da10496a1d89d08dc317a3160f9912", [:mix], [{:credo, "~> 1.7", [hex: :credo, repo: "hexpm", optional: false]}], "hexpm", "f5b38b8689625e90e377d124d2f6bf9f6e145e4895c33357a3f5fd8be8166aae"},
-  "telemetry": {:hex, :telemetry, "1.4.1", "ab6de178e2b29b58e8256b92b382ea3f590a47152ca3651ea857a6cae05ac423", [:rebar3], [], "hexpm", "2172e05a27531d3d31dd9782841065c50dd5c3c7699d95266b2edd54c2dafa1c"},
+  "telemetry": {:hex, :telemetry, "1.4.2", "a0cb522801dffb1c49fe6e30561badffc7b6d0e180db1300df759faa22062855", [:rebar3], [], "hexpm", "928f6495066506077862c0d1646609eed891a4326bee3126ba54b60af61febb1"},
 }
