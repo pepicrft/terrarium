@@ -33,7 +33,7 @@ defmodule Terrarium.MixProject do
   defp deps do
     [
       # Command execution with child process shutdown propagation
-      {:muontrap, "~> 1.7"},
+      {:muontrap, "~> 2.0"},
 
       # Telemetry
       {:telemetry, "~> 1.0"},
